@@ -48,15 +48,19 @@ bool combined_cache_t::write(simulator_t &s, uword_t address, byte_t *value, uwo
 };
 
 void combined_cache_t::tick(simulator_t &s) {
-
+    if (Phase != IDLE) Num_stall_cycles++;
 };
 void combined_cache_t::print(const simulator_t &s, std::ostream &os) {
-    
+    os << boost::format(" #M: %1$02d #B: %2$02d\n") % Num_active_methods % Num_active_blocks;
+
+    for(int i = Num_blocks-1; i >= (int)(Num_blocks-Num_active_methods); i--){
+        os << boost::format("   M%1$02d: 0x%2$08x (%3$8d Blk %4$8d b)\n") % (Num_blocks-i) % Methods[i].Address % Methods[i].Num_blocks % Methods[i].Num_bytes;
+    }
+    os << '\n';
+}
+void combined_cache_t::print_stats(const simulator_t &s, std::ostream &os, const stats_options_t& options) {
+                        
 };
-void combined_cache_t::print_stats(const simulator_t &s, std::ostream &os,
-                 const stats_options_t& options) {
-                    
-                 };
 void combined_cache_t::reset_stats() {
     
 };
