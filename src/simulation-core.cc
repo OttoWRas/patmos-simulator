@@ -140,7 +140,7 @@ namespace patmos
       ){
         err = "register write";
       } else if(Use_permissive_dual_issue) {
-        assert(NUM_SLOTS = 2);
+        assert(NUM_SLOTS == 2);
 
 #define is_combi(pred1, pred2) (\
     (pipe_instr0.I->pred1() && pipe_instr1.I->pred2()) || \
