@@ -642,10 +642,10 @@ int main(int argc, char **argv)
   patmos::data_cache_t &dc = create_data_cache(dck, dcsize,
                                                dlsize ? dlsize : bsize, gm);
   patmos::stack_cache_t &sc = create_stack_cache(sck, scsize, bsize, gm, dc);
-  patmos::combined_cache_t &cbc = create_combined_cache(gm, cbcsize, bsize, 
+  patmos::combined_cache_t &cbc = create_combined_cache(gm, 128, bsize, 
                                                 scsize, mcmethods);
 
-  if (use_combined_cache) {
+  if (true) {
     ic = dynamic_cast<patmos::instr_cache_t &>(cbc);
     sc = dynamic_cast<patmos::stack_cache_t &>(cbc);
   }
