@@ -42,6 +42,7 @@
 #include "instr-cache.h"
 #include "instr-spm.h"
 #include "method-cache.h"
+#include "combined-cache.h"
 #include "simulation-core.h"
 #include "stack-cache.h"
 #include "streams.h"
@@ -309,6 +310,17 @@ static patmos::stack_cache_t &create_stack_cache(patmos::stack_cache_e sck,
   abort();
 }
 
+static patmos::combined_cache_t &create_combined_cache(patmos::memory_t &gm,
+                                               unsigned int size,
+                                               unsigned int bsize,
+                                               unsigned int stack_blocks,
+                                              unsigned int method_blocks)
+                                              {
+  unsigned int num_blocks = (size - 1) / 4 + 1;
+  return *new patmos::combined_cache_t(gm, num_blocks, bsize,
+                                      stack_blocks, method_blocks);
+}
+
 /// Disable the line buffering
 void disable_line_buffering()
 {
@@ -513,7 +525,7 @@ int main(int argc, char **argv)
   unsigned int ethmac_offset = vm["ethmac_offset"].as<patmos::address_t>().value();
   std::string  ethmac_ip_addr = vm["ethmac_ip_addr"].as<std::string>();
   bool permissive_dual_issue = vm.count("permissive-dual-issue") != 0;
-
+  bool use_combined_cache    = vm.count("combined-cache") != 0;
 
 #ifdef RAMULATOR
   patmos::main_memory_kind_e gkind = patmos::GM_SIMPLE;
@@ -535,6 +547,7 @@ int main(int argc, char **argv)
   unsigned int mcsize = vm["mcsize"].as<patmos::byte_size_t>().value();
   unsigned int mbsize = vm["mbsize"].as<patmos::byte_size_t>().value();
   unsigned int ilsize = vm["ilsize"].as<patmos::byte_size_t>().value();
+  unsigned int cbcsize = vm["cbcsize"].as<patmos::byte_size_t>().value();
   unsigned int mcmethods= vm["mcmethods"].as<unsigned int>();
 
   unsigned int gtime = vm["gtime"].as<unsigned int>();
@@ -629,6 +642,13 @@ int main(int argc, char **argv)
   patmos::data_cache_t &dc = create_data_cache(dck, dcsize,
                                                dlsize ? dlsize : bsize, gm);
   patmos::stack_cache_t &sc = create_stack_cache(sck, scsize, bsize, gm, dc);
+  patmos::combined_cache_t &cbc = create_combined_cache(gm, cbcsize, bsize, 
+                                                scsize, mcmethods);
+
+  if (use_combined_cache) {
+    ic = dynamic_cast<patmos::instr_cache_t &>(cbc);
+    sc = dynamic_cast<patmos::stack_cache_t &>(cbc);
+  }
 
   try
   {
@@ -854,6 +874,7 @@ _cleanup:
   delete &dc;
   delete &ic;
   delete &sc;
+  delete &cbc;
 
   // free streams
   patmos::free_stream(in);
