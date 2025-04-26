@@ -13,6 +13,7 @@
 #include <map>
 #include <limits>
 #include <vector>
+#include <deque>
 #include <ostream>
 
 namespace patmos
@@ -45,54 +46,18 @@ namespace patmos
 
         enum method_phase_e
         {
-          /// The method cache is idle and available to handle requests.
-          MP_IDLE,
-          /// The method cache is on the way of fetching the size of the method
-          /// from memory.
-          MP_SIZE,
-          /// The instructions of the method are being transferred from memory.
-          MP_TRANSFER
-        };
-
-        typedef unsigned int method_tag_t; 
-
-        class combined_ptr_t
-        {
-        private:
-            unsigned int ptr;
-            unsigned int max;
-
-        public:
-            
-            combined_ptr_t(unsigned int ptr, unsigned int max) 
-                : ptr(ptr), max(0) {};
-
-            combined_ptr_t& operator--(int) {
-                ptr = (ptr == 0) ? max - 1 : ptr - 1;
-                return *this;
-            }
-
-            combined_ptr_t operator-(const int &rhs) const {
-                int diff = ptr - rhs;
-                if (diff < 0) {
-                    diff += max;
-                }
-                return combined_ptr_t(diff, max);
-            }
-
-            int operator*() const { return ptr; }
-            operator int() const { return ptr; }
-
-            combined_ptr_t& operator++(int) {
-                ptr = (ptr + 1) % max;
-                return *this;
-            };
-
+            /// The method cache is idle and available to handle requests.
+            MP_IDLE,
+            /// The method cache is on the way of fetching the size of the method
+            /// from memory.
+            MP_SIZE,
+            /// The instructions of the method are being transferred from memory.
+            MP_TRANSFER
         };
 
         /// Bookkeeping information on methods in the cache.
         class method_info_t
-        { 
+        {
         public:
             /// The address of the method.
             uword_t Address;
@@ -103,10 +68,6 @@ namespace patmos
             /// The size of the method in bytes.
             uword_t Num_bytes;
 
-            unsigned int method_tag; 
-
-            bool Fully_in_cache;
-
             std::vector<bool> Utilization;
 
             /// Construct a method lru info object. All data is initialized to zero.
@@ -116,155 +77,81 @@ namespace patmos
             {
             }
 
-            method_info_t(uword_t address, uword_t blocks, uword_t bytes, method_tag_t tag)
-            : Address(address), Num_blocks(blocks), Num_bytes(bytes), 
-              Fully_in_cache(true), method_tag(tag)
-            {}
+            method_info_t(uword_t address, uword_t blocks, uword_t bytes)
+                : Address(address), Num_blocks(blocks), Num_bytes(bytes)
+            {
+            }
 
             /// Update the internal data of the method lru info entry.
             /// @param address The new address of the entry.
             /// @param num_blocks The number of blocks occupied in the method cache.
             /// @param num_bytes The number of valid instruction bytes of the method.
             void update(uword_t address, uword_t num_blocks,
-                        uword_t num_bytes) 
-                        {
-                            Address = address;
-                            Num_blocks = num_blocks;
-                            Num_bytes = num_bytes;
-                        }
+                        uword_t num_bytes)
+            {
+                Address = address;
+                Num_blocks = num_blocks;
+                Num_bytes = num_bytes;
+            }
 
             void reset_utilization();
 
             unsigned int get_utilized_bytes();
         };
 
-        class combined_block_info 
-        {
-        public:
-            bool         Is_empty;
-            bool         Is_method;
-            uword_t      Address;
-            method_tag_t method_tag;
-
-            combined_block_info()
-                : Is_empty(true), Is_method(false), Address(0), method_tag(0)
-            {
-            }
-
-            void add_method_tag (method_tag_t &tag)
-            {
-                method_tag  = tag;
-                Is_method   = true;
-                Is_empty    = false;
-            }
-
-            void add_address (uword_t address) 
-            {
-                Address = address;
-                Is_method = false;
-                Is_empty  = false;
-            }
-
-            void empty() {
-                Address   = 0;
-                Is_method = false;
-                Is_empty  = true;
-            }
-        };
-
-        /// Map addresses to cache statistics of individual methods.
-        typedef std::map<word_t, method_stats_info_t> method_stats_t;
-
-        /// Size of the stack cache in blocks.
+        /// Number of global blocks.
         unsigned int Num_blocks;
 
-        /// Size of blocks in bytes.
+        /// Number of bytes in a block.
         unsigned int Num_block_bytes;
-        
+
         /// Maximum number of active functions allowed in the cache.
         unsigned int Num_max_methods;
 
-        /// The stack cache pointer.
-        combined_ptr_t stack_ptr;
+        /// Number of pre reserved method blocks
+        unsigned int m_blocks;
+        
+        /// Number of pre reserved stack blocks
+        unsigned int s_blocks;
 
-        unsigned int  stack_top_ptr;
-        unsigned int  stack_spill_ptr;
+        /// Number of active reserved stack blocks 
+        unsigned int s_active_blocks;
 
-        unsigned int Num_method_blocks;
+        /// Currently active phase to fetch a method from memory.
+        method_phase_e m_phase;
 
-        combined_ptr_t method_ptr;
+        /// Currently active phase to fetch stack data from memory.
+        stack_phase_e s_phase;
 
-        unsigned int Num_stack_blocks;
+        /// Number of blocks of the currently pending transfer, if any.
+        uword_t m_allocate_blocks;
 
-        unsigned int Method_tag_head;
+        /// Number of bytes of the currently pending transfer, if any.
+        uword_t m_method_size;
 
-        /// Store currently ongoing transfer.
-        stack_phase_e stack_phase;
+        /// The methods in the cache sorted by age.
+        std::deque<method_info_t> Methods;
 
-        /// Store currently ongoing transfer.
-        method_phase_e method_phase;
-
-        /// The memory to spill/fill.
-        memory_t &Memory;
+        /// Cache buffer.
+        byte_t *Cache;
 
         /// Temporary buffer used during spill/fill.
         byte_t *Buffer;
 
-        /// Number of blocks of the currently pending transfer, if any.
-        uword_t Num_allocate_blocks;
-
-        /// Number of bytes of the currently pending transfer, if any.
-        uword_t Num_method_size;
-
-        /// The methods in the cache sorted by age.
-        std::vector<method_info_t> Methods;
-
-        /// Cache buffer.
-        combined_block_info *Cache;
-
-        /// Fake cache
-        byte_t *Fake_cache;
-
-        // *************************************************************************
-        // statistics
-
-        /// Total number of blocks reserved.
-        unsigned int Num_blocks_reserved;
-        /// Maximal number of blocks reserved at once.
-        unsigned int Max_blocks_reserved;
-        /// Total number of blocks transferred to main (spill) memory.
-        unsigned int Num_blocks_spilled;
-        /// Maximal number of blocks transferred to main at once (spill) memory.
-        unsigned int Max_blocks_spilled;
-        /// Total number of blocks transferred from main (fill) memory.
-        unsigned int Num_blocks_filled;
-        /// Maximal number of blocks transferred from main at once (fill) memory.
-        unsigned int Max_blocks_filled;
-        /// Number of executed free instructions resulting in an entirely empty
-        /// stack cache.
-        unsigned int Num_free_empty;
-        /// Number of read accesses to the stack cache.
-        unsigned int Num_read_accesses;
-        /// Number of bytes read from the stack cache.
-        unsigned int Num_bytes_read;
-
-        /// Number of write accesses to the stack cache.
-        unsigned int Num_write_accesses;
-
-        /// Number of bytes written to the stack cache.
-        unsigned int Num_bytes_written;
-
-        /// Number of stall cycles caused by method cache misses.
-        unsigned int Num_stall_cycles;
+        /// The memory to spill/fill.
+        memory_t &Memory;
+        
+        /// Map addresses to cache statistics of individual methods.
+        typedef std::map<word_t, method_stats_info_t> method_stats_t;
 
         /// The number of methods currently in the cache.
-        unsigned int Num_active_methods;
+        unsigned int m_active_methods;
 
         /// The sum of sizes of all method entries currently active in the cache.
-        unsigned int Num_active_blocks;
+        unsigned int m_active_blocks;
 
         /// Number of blocks transferred from the main memory.
-        unsigned int Num_blocks_allocated;
+        unsigned int m_blocks_allocated;
 
         /// Largest number of blocks transferred from the main memory for a single
         /// method.
@@ -298,6 +185,9 @@ namespace patmos
         /// Number of cache evictions due to the limited number of tags.
         unsigned int Num_evictions_tag;
 
+        /// Number of stall cycles caused by method cache misses.
+        unsigned int Num_stall_cycles;
+
         /// Number of bytes used in evicted methods.
         unsigned int Num_bytes_utilized;
 
@@ -310,6 +200,68 @@ namespace patmos
         /// Cache statistics of individual method.
         method_stats_t Method_stats;
 
+        // --------------------- STACK CACHE STATS ---------------------
+
+        /// Total number of blocks reserved.
+        unsigned int Num_blocks_reserved;
+
+        /// Maximal number of blocks reserved at once.
+        unsigned int Max_blocks_reserved;
+
+        /// Total number of blocks transferred to main (spill) memory.
+        unsigned int Num_blocks_spilled;
+
+        /// Maximal number of blocks transferred to main at once (spill) memory.
+        unsigned int Max_blocks_spilled;
+
+        /// Total number of blocks transferred from main (fill) memory.
+        unsigned int Num_blocks_filled;
+
+        /// Maximal number of blocks transferred from main at once (fill) memory.
+        unsigned int Max_blocks_filled;
+
+        /// Number of executed free instructions resulting in an entirely empty
+        /// stack cache.
+        unsigned int Num_free_empty;
+
+        /// Number of read accesses to the stack cache.
+        unsigned int Num_read_accesses;
+
+        /// Number of bytes read from the stack cache.
+        unsigned int Num_bytes_read;
+
+        /// Number of write accesses to the stack cache.
+        unsigned int Num_write_accesses;
+
+        /// Number of bytes written to the stack cache.
+        unsigned int Num_bytes_written;
+
+        /// Number of bytes transferred as a block during filling/spilling.
+        uword_t Num_transfer_block_bytes;
+
+        /// Total number of words additionally transferred to main (spill) memory.
+        unsigned int Num_words_spilled;
+
+        /// Maximal number of blocks additionally transferred to main at once
+        /// (spill) memory.
+        unsigned int Max_words_spilled;
+
+        /// Total number of words additionally transferred from main (fill)
+        /// memory.
+        unsigned int Num_words_filled;
+
+        /// Maximal number of blocks additionally transferred from main at once
+        /// (fill) memory.
+        unsigned int Max_words_filled;
+
+        /// Total number of words additionally transferred from main (free)
+        /// memory.
+        unsigned int Num_words_free_filled;
+
+        /// Maximal number of blocks additionally transferred from main at once
+        /// (fill) memory.
+        unsigned int Max_words_free_filled;
+
         /// A simulated instruction fetch from the method cache.
         /// @param current_method The currently active method.
         /// @param address The memory address to fetch from.
@@ -321,12 +273,6 @@ namespace patmos
         /// @param address The method address.
         /// @return True in case the method is in the cache, false otherwise.
         virtual bool lookup(simulator_t &s, uword_t address);
-
-        method_tag_t  get_next_method_tag() {
-            auto n = Method_tag_head;
-            Method_tag_head++;
-            return n;
-        }
 
         void update_utilization_stats(method_info_t &method, uword_t utilized_bytes);
 
@@ -376,8 +322,8 @@ namespace patmos
         /// Construct a block-based stack method cache.
         /// @param memory The memory to spill/fill.
         /// @param num_blocks Size of the stack cache in blocks.
-        combined_cache_t(memory_t &memory, unsigned int num_blocks, unsigned int num_block_bytes, 
-            unsigned int stack_blocks, unsigned int method_blocks, unsigned int max_active_methods = 0);
+        combined_cache_t(memory_t &memory, unsigned int num_blocks, unsigned int num_block_bytes,
+                         unsigned int stack_blocks, unsigned int method_blocks, unsigned int max_active_methods = 0);
 
         virtual ~combined_cache_t();
 
