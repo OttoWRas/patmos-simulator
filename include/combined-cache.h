@@ -80,6 +80,7 @@ namespace patmos
             method_info_t(uword_t address, uword_t blocks, uword_t bytes)
                 : Address(address), Num_blocks(blocks), Num_bytes(bytes)
             {
+                reset_utilization();
             }
 
             /// Update the internal data of the method lru info entry.
@@ -92,6 +93,7 @@ namespace patmos
                 Address = address;
                 Num_blocks = num_blocks;
                 Num_bytes = num_bytes;
+                reset_utilization();
             }
 
             void reset_utilization();

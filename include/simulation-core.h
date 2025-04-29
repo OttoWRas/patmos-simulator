@@ -91,7 +91,9 @@ namespace patmos
   /// Define the maximum number of methods that can be cached in the method cache.
   static const unsigned int NUM_METHOD_CACHE_MAX_METHODS = 16;
 
-  static const unsigned int NUM_COMBINED_CACHE_SHARE_BLOCKS = 0;
+  static const unsigned int NUM_COMBINED_CACHE_STACK_SIZE = 0x800;
+  
+  static const unsigned int NUM_COMBINED_CACHE_METHOD_SIZE = 0x800;
 
   /// Define the number of bytes in a block of the method cache.
   static const unsigned int NUM_METHOD_CACHE_BLOCK_BYTES = 8;

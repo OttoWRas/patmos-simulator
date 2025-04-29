@@ -93,8 +93,7 @@ void combined_cache_t::initialize(simulator_t &s, uword_t address)
 {
   assert(m_active_blocks == 0 && m_active_methods == 0);
 
-  // get 'most-recent' method of the cache
-  method_info_t &current_method = Methods.back();
+  printf("Using combined cache\n");
 
   // we assume it is an ordinary function entry with size specification
   // (the word before) and copy it in the cache.
@@ -102,7 +101,7 @@ void combined_cache_t::initialize(simulator_t &s, uword_t address)
   peek_function_size(s, address, &num_bytes);
   num_blocks = get_num_blocks_for_bytes(num_bytes);
 
-  current_method.update(address, num_blocks, num_bytes);
+  Methods.push_back(method_info_t(address, num_blocks, num_bytes));
   m_active_blocks = num_blocks;
 
   m_active_methods = 1;
@@ -122,6 +121,8 @@ bool combined_cache_t::do_fetch(simulator_t &s, method_info_t &current_method,
       address < current_method.Address ||
       current_method.Address + current_method.Num_bytes + sizeof(word_t) * NUM_SLOTS * 3 <= address)
   {
+    printf("Illegal PC: 0x%08x, current method: 0x%08x\n", address, current_method.Address);
+    printf("Num_bytes: %d, Num_blocks: %d\n", current_method.Num_bytes, current_method.Num_blocks);
     simulation_exception_t::illegal_pc(current_method.Address);
   }
 
@@ -814,6 +815,11 @@ unsigned int combined_cache_t::method_info_t::get_utilized_bytes() {
     }
   }
   return utilized_bytes;
+}
+
+void combined_cache_t::method_info_t::reset_utilization() {
+  Utilization.clear();
+  Utilization.resize(Num_bytes / sizeof(uword_t) + 3);
 }
 
 void combined_cache_t::reset_stats() {};
