@@ -112,7 +112,7 @@ void combined_cache_t::initialize(simulator_t &s, uword_t address)
 bool combined_cache_t::fetch(simulator_t &s, uword_t base, uword_t address, word_t iw[2])
 {
   // fetch from 'most-recent' method of the cache
-  return do_fetch(s, Methods[Num_blocks - 1], address, iw);
+  return do_fetch(s, Methods.back(), address, iw);
 }
 
 bool combined_cache_t::do_fetch(simulator_t &s, method_info_t &current_method,
@@ -313,7 +313,7 @@ bool combined_cache_t::is_available(simulator_t &s, uword_t address)
 
 uword_t combined_cache_t::get_active_method_base()
 {
-  return Methods[Num_blocks - 1].Address;
+  return Methods.back().Address;
 }
 
 size_t combined_cache_t::get_active_method() const
@@ -340,7 +340,7 @@ word_t combined_cache_t::prepare_reserve(simulator_t &s, uword_t size,
   unsigned int size_blocks = size ? (size - 1) / Num_block_bytes + 1 : 0;
 
   // ensure that the stack cache size is not exceeded
-  if (size_blocks > Num_blocks)
+  if (size_blocks > s_blocks)
   {
     simulation_exception_t::stack_exceeded("Reserving more blocks than"
                                            "the number of blocks in the stack cache");

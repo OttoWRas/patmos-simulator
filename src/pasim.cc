@@ -310,14 +310,15 @@ static patmos::stack_cache_t &create_stack_cache(patmos::stack_cache_e sck,
   abort();
 }
 
-static patmos::combined_cache_t &create_combined_cache(patmos::memory_t &gm,
-                                               unsigned int size,
-                                               unsigned int bsize,
-                                               unsigned int stack_blocks,
-                                              unsigned int method_blocks)
+static patmos::combined_cache_t &create_combined_cache( unsigned int bsize,
+                                              unsigned int stack_size,
+                                              unsigned int method_size, 
+                                              unsigned int shared_blocks,
+                                              patmos::memory_t &gm)
                                               {
-  unsigned int num_blocks = (size - 1) / 4 + 1;
-  return *new patmos::combined_cache_t(gm, num_blocks, bsize,
+  unsigned int stack_blocks = (stack_size - 1) / 4 + 1;
+  unsigned int method_blocks = (method_size - 1) / 4 + 1;
+  return *new patmos::combined_cache_t(gm, stack_blocks + shared_blocks + method_blocks, bsize,
                                       stack_blocks, method_blocks);
 }
 
@@ -428,7 +429,10 @@ int main(int argc, char **argv)
     ("mcmethods",boost::program_options::value<unsigned int>()->default_value(patmos::NUM_METHOD_CACHE_MAX_METHODS),
                  "Maximum number of methods in the method cache, defaults to number of blocks if zero")
     ("mbsize",   boost::program_options::value<patmos::byte_size_t>()->default_value(patmos::NUM_METHOD_CACHE_BLOCK_BYTES),
-                 "method cache block size in bytes, defaults to burst size if zero");
+                 "method cache block size in bytes, defaults to burst size if zero")
+    ("combined-size,u", boost::program_options::value<unsigned int>()->default_value(patmos::NUM_COMBINED_CACHE_SHARE_BLOCKS),
+                  "Use a combined cache for the stack and method cache. This is a single cache that can be used for both stack and method cache accesses. The size of the stack cache is set to 0, and the size of the method cache is set to the size of the combined cache minus the size of the stack cache.");
+
 
   boost::program_options::options_description sim_options("Simulator options");
   sim_options.add_options()
@@ -525,7 +529,6 @@ int main(int argc, char **argv)
   unsigned int ethmac_offset = vm["ethmac_offset"].as<patmos::address_t>().value();
   std::string  ethmac_ip_addr = vm["ethmac_ip_addr"].as<std::string>();
   bool permissive_dual_issue = vm.count("permissive-dual-issue") != 0;
-  bool use_combined_cache    = vm.count("combined-cache") != 0;
 
 #ifdef RAMULATOR
   patmos::main_memory_kind_e gkind = patmos::GM_SIMPLE;
@@ -547,7 +550,6 @@ int main(int argc, char **argv)
   unsigned int mcsize = vm["mcsize"].as<patmos::byte_size_t>().value();
   unsigned int mbsize = vm["mbsize"].as<patmos::byte_size_t>().value();
   unsigned int ilsize = vm["ilsize"].as<patmos::byte_size_t>().value();
-  unsigned int cbcsize = vm["cbcsize"].as<patmos::byte_size_t>().value();
   unsigned int mcmethods= vm["mcmethods"].as<unsigned int>();
 
   unsigned int gtime = vm["gtime"].as<unsigned int>();
@@ -642,12 +644,13 @@ int main(int argc, char **argv)
   patmos::data_cache_t &dc = create_data_cache(dck, dcsize,
                                                dlsize ? dlsize : bsize, gm);
   patmos::stack_cache_t &sc = create_stack_cache(sck, scsize, bsize, gm, dc);
-  patmos::combined_cache_t &cbc = create_combined_cache(gm, 128, bsize, 
-                                                scsize, mcmethods);
+  patmos::combined_cache_t &cbc = create_combined_cache(128, bsize, 
+                                                scsize, mcmethods, gm);
 
-  if (true) {
-    ic = dynamic_cast<patmos::instr_cache_t &>(cbc);
-    sc = dynamic_cast<patmos::stack_cache_t &>(cbc);
+  if (patmos::NUM_COMBINED_CACHE_SHARE_BLOCKS != 0) {
+    printf("Using combined cache\n");
+    ic = static_cast<patmos::instr_cache_t &>(cbc);
+    sc = static_cast<patmos::stack_cache_t &>(cbc);
   }
 
   try
@@ -874,7 +877,7 @@ _cleanup:
   delete &dc;
   delete &ic;
   delete &sc;
-  delete &cbc;
+  //delete &cbc;
 
   // free streams
   patmos::free_stream(in);
