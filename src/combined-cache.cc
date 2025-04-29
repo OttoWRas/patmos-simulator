@@ -13,8 +13,8 @@ namespace patmos
                                      unsigned int stack_blocks, unsigned int method_blocks, unsigned int max_active_methods)
       : fifo_method_cache_t(memory, method_blocks, num_block_bytes, max_active_methods),
         block_aligned_stack_cache_t(memory, stack_blocks, num_block_bytes),
-        Num_total_blocks(num_blocks),
-        Num_shared_blocks(num_blocks)
+        Num_total_blocks(num_blocks), Num_stack_blocks(0),
+        Num_shared_blocks(num_blocks - (method_blocks + stack_blocks))
   {
     // Initialize any additional members or logic specific to combined_cache_t here
   }
@@ -24,7 +24,6 @@ namespace patmos
   }
   bool combined_cache_t::load_method(simulator_t &s, uword_t address, word_t offset)
   {
-    //fifo_method_cache_t::Num_blocks = Num_total_blocks - Num_stack_blocks;
     // Implement the logic to load a method into the cache
     return fifo_method_cache_t::load_method(s, address, offset);
   }
@@ -36,7 +35,7 @@ namespace patmos
     if (delta > 0 && (delta + fifo_method_cache_t::Num_active_blocks + Num_stack_blocks) > Num_total_blocks)
     {
       free_method(s, delta + fifo_method_cache_t::Num_active_blocks + Num_stack_blocks);
-      Num_stack_blocks = size ? (size - 1) / block_aligned_stack_cache_t::Num_block_bytes + 1 : 0;
+      Num_active_blocks += delta ? (delta - 1) / block_aligned_stack_cache_t::Num_block_bytes + 1 : 0;
     }
 
     return block_stack_cache_t::reserve(s, size, delta, new_spill, new_top);
@@ -45,8 +44,8 @@ namespace patmos
   bool combined_cache_t::free(simulator_t &s, uword_t size, word_t delta,
                               uword_t new_spill, uword_t new_top)
   {
-    Num_stack_blocks = size ? (size - 1) / block_aligned_stack_cache_t::Num_block_bytes + 1 : 0;
-    return block_stack_cache_t::ensure(s, size, delta, new_spill, new_top);
+    Num_active_blocks += delta ? (delta - 1) / block_aligned_stack_cache_t::Num_block_bytes + 1 : 0;
+    return block_stack_cache_t::free(s, size, delta, new_spill, new_top);
   }
 
   bool combined_cache_t::ensure(simulator_t &s, uword_t size, word_t delta,
@@ -56,13 +55,15 @@ namespace patmos
     if (delta > 0 && (fifo_method_cache_t::Num_active_blocks + block_aligned_stack_cache_t::Num_blocks_reserved) > Num_total_blocks)
     {
       free_method(s, delta + fifo_method_cache_t::Num_active_blocks + Num_stack_blocks);
-      Num_stack_blocks = size ? (size - 1) / block_aligned_stack_cache_t::Num_block_bytes + 1 : 0;
+      Num_active_blocks += delta ? (delta - 1) / block_aligned_stack_cache_t::Num_block_bytes + 1 : 0;
     }
     return block_stack_cache_t::ensure(s, size, delta, new_spill, new_top);
   }
 
   void combined_cache_t::free_method(simulator_t &s, uword_t size)
   {
+    printf("Freeing method at address %u\n", size);
+    // Implement the logic to free a method from the cache
     uword_t free_blocks = get_num_blocks_for_bytes(size);
 
     uword_t evicted_blocks = 0;

@@ -324,7 +324,7 @@ static patmos::combined_cache_t &create_combined_cache(unsigned int bsize,
   unsigned int stack_blocks = (shared_stack_size - 1) / bsize + 1;
   unsigned int method_blocks = (shared_method_size - 1) / bsize + 1;
   return *new patmos::combined_cache_t(gm, combined_blocks, bsize,
-                                       stack_blocks, method_blocks);
+    combined_blocks, combined_blocks);
 }
 
 /// Disable the line buffering
@@ -608,8 +608,8 @@ int main(int argc, char **argv)
     printf("Using combined cache\n");
   }
   
-  ic = cbc;
-  sc = cbc;
+  //ic = cbc;
+  //sc = cbc;
 
   try
   {
