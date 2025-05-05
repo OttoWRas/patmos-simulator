@@ -62,6 +62,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <optional>
 
 #include <boost/program_options.hpp>
 
@@ -603,13 +604,7 @@ int main(int argc, char **argv)
   patmos::combined_cache_t &cbc = create_combined_cache(bsize,
                                                         scsize, mcsize, cssize, cmsize, gm);
 
-  if (cssize != 0)
-  {
-    printf("Using combined cache\n");
-  }
-  
-  //ic = cbc;
-  //sc = cbc;
+
 
   try
   {
@@ -639,9 +634,15 @@ int main(int argc, char **argv)
     patmos::memory_map_t mm(lm, std::min(mmbase, nocbase), mmhigh);
 
     patmos::symbol_map_t sym;
-
-    patmos::simulator_t s(freq, gm, mm, dc, cbc, cbc, sym, excunit, permissive_dual_issue);
-
+    patmos::simulator_t * temp_s = nullptr;
+    if (cssize != 0){
+      // use a combined cache for the stack and method cache
+      temp_s = new patmos::simulator_t(freq, gm, mm, dc, cbc, cbc, sym, excunit, permissive_dual_issue);
+    } else {
+      // use a separate stack and method cache
+      temp_s = new patmos::simulator_t(freq, gm, mm, dc, cbc, cbc, sym, excunit, permissive_dual_issue);
+    }
+    patmos::simulator_t s = *temp_s;
     // setup statistics printing
     patmos::stats_options_t &stats_options = s.Dbg_stack.get_stats_options();
     stats_options.short_stats = !long_stats;
