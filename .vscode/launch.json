@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "cppdbg",
+      "request": "launch",
+      "name": "Launch with GDB",
+      "program": "${workspaceFolder}/${input:programPath}",
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": true,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "text": "-enable-pretty-printing",
+          "description": "Enable GDB pretty printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "programPath",
+      "description": "Enter the relative path to the program executable"
+    }
+  ]
+}

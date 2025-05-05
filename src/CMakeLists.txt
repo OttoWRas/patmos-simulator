@@ -33,7 +33,7 @@ add_library(patmos-simulator assembler.cc simulation-core.cc instruction.cc
                              symbol.cc profiling.cc excunit.cc memory-map.cc
                              dbgstack.cc loader.cc memory.cc method-cache.cc
                              stack-cache.cc data-cache.cc instr-cache.cc
-                             instr-spm.cc)
+                             instr-spm.cc combined-cache.cc)
 
 add_executable(pasim pasim.cc)
 
